@@ -21,14 +21,17 @@ parser.add_argument('-s', '--steps', help='Number of simulation steps',
 parser.add_argument('-b', '--beta', help='Inverse temperature, normalized to '
                    'the energy of one spin flip: beta=2/kT', default=2,
                    type=float)
-parser.add_argument('-m', '--movie', action='store_const', const=True,
-                    help='Output a video file showing the evolution of the '
-                    'lattice', default=False)
-args = parser.parse_args()
-side = args.length
-steps = args.steps
-beta = args.beta
-make_movie = args.movie
+parser.add_argument('-m', '--movie', const=True, default=False, nargs='?',
+                    help='Write video to MOVIE. If no filename is '
+                    'specified, use OUTPUT with extension set to avi')
+parser.add_argument('-o', '--output', help='Data output filename. Default '
+                    'value is the next filename of the form '
+                    +output_prefix+'NNNNN'+output_suffix)
+opt = parser.parse_args()
+side = opt.length
+steps = opt.steps
+beta = opt.beta
+make_movie = opt.movie
 # Number of spins
 N = side*side
 # Write buffer size
@@ -38,18 +41,18 @@ buffer_size = 4096
 # Seed random number generator
 seed = int(time())
 sp.random.seed(seed)
-# Output filename counter
-try:
-    counter = 1 + max([int(filename[len(output_prefix):-len(output_suffix)])
-                       for filename in os.listdir(output_dir)
-                       if filename[:len(output_prefix)] == output_prefix
-                       and filename[-len(output_suffix):] == output_suffix])
-except Exception as e:
-    counter = 1
-output_filename = os.path.join(output_dir,
-                               (output_prefix+'{:05d}').format(counter))
+if opt.output is None:
+    try:
+        counter = max(int(filename[len(output_prefix):-len(output_suffix)])
+                      for filename in os.listdir(output_dir)
+                      if filename[:len(output_prefix)] == output_prefix
+                      and filename[-len(output_suffix):] == output_suffix)+1
+    except Exception as e:
+        counter = 1
+    opt.output = os.path.join(output_dir, (output_prefix+'{:05d}'+
+                                           output_suffix).format(counter))
 
-fd = open(output_filename+output_suffix, 'w', buffer_size)
+fd = open(opt.output, 'w', buffer_size)
 fd.write('# N={:d}\n'.format(N))
 fd.write('# beta={:f}\n'.format(beta))
 # Write RNG seed and commit hash so this run can be repeated later, once the
@@ -86,13 +89,19 @@ updown[0] = sp.sum(grid[:-1,:] ^ grid[1:,:]) \
 
 print 'Simulating {:d} steps of a {:d}x{:d} lattice at beta={:f}'.format(
     steps, side, side, beta)
-print 'Writing run data to '+output_filename+output_suffix
-if make_movie:
+print 'Writing run data to ' + opt.output
+if opt.movie:
+    if opt.movie != True:
+        video_filename = opt.movie
+    else:
+        if opt.output[-4] == '.':
+            video_filename = opt.output[:-3] + 'avi'
+        else:
+            video_filename = opt.output + '.avi'
     import cv, cv2
-    movieWriter = cv2.VideoWriter(output_filename+'.avi',
-                                  cv.FOURCC('U','2','6','3'), 20, (side, side),
-                                  False)
-    print 'Writing movie to '+output_filename+'.avi'
+    movieWriter = cv2.VideoWriter(video_filename, cv.FOURCC('U','2','6','3'),
+                                  20, (side, side), False)
+    print 'Writing movie to ' + video_filename
 
 # Number of dashes in complete progress bar
 progress_bar_size = min(20, steps)
