@@ -51,6 +51,8 @@ output_filename = os.path.join(output_dir,
 fd = open(output_filename+output_suffix, 'w', buffer_size)
 fd.write('# N={:d}\n'.format(N))
 fd.write('# beta={:f}\n'.format(beta))
+# Write RNG seed and commit hash so this run can be repeated later, once the
+# code has changed
 fd.write('# seed={:d}\n'.format(seed))
 fd.write('# commit='+check_output(['git', 'log', '--pretty=format:%H', '-n',
                                    '1' ])+'\n')
@@ -63,12 +65,15 @@ grid[:,:] = sp.random.random_integers(0, 1, size=grid.shape)
 # require 4 increments/decrements
 # neighbours = sp.zeros(size=grid.shape, dtype=sp.byte)
 
+# Original motivation for making up and upup into slices of data was to then
+# use data.tofile
+# TODO: either use tofile for saving or make them into independent arrays
 data = sp.empty((steps, 2), dtype=sp.uint32)
 # Number of up spins
 up = data[:,0]
 up[0] = sp.sum(grid)
 # Number of up-down pairs
-# Energy = -J * (N++ + N-- - N+-) = 2J * (N+- - N)
+# Energy = - (N++ + N-- - N+-) = 2 * (N+- - N)
 updown = data[:,1]
 # up ^ up = down ^ down = 0
 # up ^ down = down ^ up = 1
@@ -94,6 +99,9 @@ for step in xrange(1,steps):
                         + grid[(i+1)%side,j] + grid[(i-1)%side,j] - 2
             if not grid[i,j]:
                 deltaupdown *= -1
+            # Transition probability is:
+            # - if ΔE < 0: 1
+            # - otherwise: exp(-beta*ΔE)
             if deltaupdown <= 0 or \
                     sp.random.random() < sp.exp(-beta*deltaupdown):
                 grid[i,j] = not grid[i,j]
