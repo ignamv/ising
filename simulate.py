@@ -129,10 +129,10 @@ for step in xrange(1,opt.steps):
     if step % steps_per_dash == 0:
         stdout.write('-')
         stdout.flush()
+    fd.write(' '.join(str(d) for d in data[step, :])+'\n')
 if opt.steps % progress_bar_size == 0:
     stdout.write('-')
     stdout.flush()
 
-    fd.write(' '.join(str(d) for d in data[step, :])+'\n')
 fd.close()
 
