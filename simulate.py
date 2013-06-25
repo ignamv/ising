@@ -92,8 +92,8 @@ if make_movie:
 for step in xrange(1,steps):
     up[step] = up[step-1]
     updown[step] = updown[step-1]
-    for i in range(side):
-        for j in range(side):
+    for i in sp.random.permutation(side):
+        for j in sp.random.permutation(side):
             # Calculate change in up-down neighbours if I flip out
             deltaupdown = grid[i,(j+1)%side] + grid[i,(j-1)%side] \
                         + grid[(i+1)%side,j] + grid[(i-1)%side,j] - 2
