@@ -7,6 +7,7 @@ from config import *
 from time import time
 from subprocess import check_output
 import argparse
+from sys import stdout
 
 #----------------------------- Settings -------------------------------------
 parser = argparse.ArgumentParser(description='Simulate a lattice of dipoles '
@@ -83,12 +84,21 @@ updown[0] = sp.sum(grid[:-1,:] ^ grid[1:,:]) \
           + sp.sum(grid[-1,:] ^ grid[0,:])   \
           + sp.sum(grid[:,-1] ^ grid[:,0])
 
+print 'Simulating {:d} steps of a {:d}x{:d} lattice at beta={:f}'.format(
+    steps, side, side, beta)
+print 'Writing run data to '+output_filename+output_suffix
 if make_movie:
     import cv, cv2
     movieWriter = cv2.VideoWriter(output_filename+'.avi',
                                   cv.FOURCC('U','2','6','3'), 20, (side, side),
                                   False)
+    print 'Writing movie to '+output_filename+'.avi'
 
+# Number of dashes in complete progress bar
+progress_bar_size = min(20, steps)
+steps_per_dash = steps / progress_bar_size
+print '['+' '*progress_bar_size+']\r[',
+stdout.flush()
 for step in xrange(1,steps):
     up[step] = up[step-1]
     updown[step] = updown[step-1]
@@ -109,6 +119,13 @@ for step in xrange(1,steps):
                 updown[step] += deltaupdown
     if make_movie:
         movieWriter.write((128*grid).astype(sp.uint8))
+    if step % steps_per_dash == 0:
+        stdout.write('-')
+        stdout.flush()
+if steps % progress_bar_size == 0:
+    stdout.write('-')
+    stdout.flush()
+
     fd.write(' '.join(str(d) for d in data[step, :])+'\n')
 fd.close()
 
