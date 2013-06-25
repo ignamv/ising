@@ -4,6 +4,7 @@ import scipy as sp
 import os
 from config import *
 from time import time
+from subprocess import check_output
 
 #----------------------------- Settings -------------------------------------
 # Number of spins in a side of the grid
@@ -38,6 +39,8 @@ fd = open(output_filename+output_suffix, 'w', buffer_size)
 fd.write('# N={:d}\n'.format(N))
 fd.write('# beta={:f}\n'.format(beta))
 fd.write('# seed={:d}\n'.format(seed))
+fd.write('# commit='+check_output(['git', 'log', '--pretty=format:%H', '-n',
+                                   '1' ])+'\n')
 grid = sp.empty((side, side), dtype=sp.byte)
 # up is 1, down is 0
 grid[:,:] = sp.random.random_integers(0, 1, size=grid.shape)
