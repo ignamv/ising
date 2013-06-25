@@ -11,7 +11,7 @@ The order of the lattice is measured by the number of spins
 pointing up/down and by the number of up-up, up-down and down-down pairs. The
 point of this program is to run a number of simulations at various temperatures
 and measure the variations in order. Also, to make [pretty
-videos](http://www.youtube.com/watch?v=GffrGjsVY8Y&feature=youtu.be)
+videos](http://www.youtube.com/watch?v=oHhK7Ce-HoA)
 Usage
 -----
 
