@@ -98,9 +98,10 @@ if opt.movie:
             video_filename = opt.output[:-3] + 'avi'
         else:
             video_filename = opt.output + '.avi'
-    import cv, cv2
-    movieWriter = cv2.VideoWriter(video_filename, cv.FOURCC('U','2','6','3'),
-                                  20, (side, side), False)
+    from cv import FOURCC
+    from cv2 import VideoWriter
+    movieWriter = VideoWriter(video_filename, FOURCC('U','2','6','3'),
+                              20, (side, side), False)
     print 'Writing movie to ' + video_filename
 
 # Number of dashes in complete progress bar
