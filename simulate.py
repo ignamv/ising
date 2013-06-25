@@ -1,24 +1,37 @@
 #!/usr/bin/env python
+#--encoding: utf-8 --
 
 import scipy as sp
 import os
 from config import *
 from time import time
 from subprocess import check_output
+import argparse
 
 #----------------------------- Settings -------------------------------------
-# Number of spins in a side of the grid
-side = 64
-steps = 200
-# All energies normalized to 2J = difference in energy between parallel and
-# antiparallel spins
-# beta = 2J/kT
-beta = 2.25
+parser = argparse.ArgumentParser(description='Simulate a lattice of dipoles '
+                                'with nearest-neighbour interactions. '
+                                'The interaction energy is ±1 for '
+                                 '[anti]parallel neighbours')
+parser.add_argument('-l', '--length', help='Number of lattice sites per side',
+                   default=64, type=int)
+parser.add_argument('-s', '--steps', help='Number of simulation steps',
+                   default=200, type=int)
+parser.add_argument('-b', '--beta', help='Inverse temperature, normalized to '
+                   'the energy of one spin flip: beta=2/kT', default=2,
+                   type=float)
+parser.add_argument('-m', '--movie', action='store_const', const=True,
+                    help='Output a video file showing the evolution of the '
+                    'lattice', default=False)
+args = parser.parse_args()
+side = args.length
+steps = args.steps
+beta = args.beta
+make_movie = args.movie
 # Number of spins
 N = side*side
 # Write buffer size
 buffer_size = 4096
-make_movie = True
 #----------------------------------------------------------------------------
 
 # Seed random number generator
