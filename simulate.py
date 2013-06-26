@@ -98,5 +98,6 @@ if opt.steps % progress_bar_size == 0:
     stdout.write('-')
     stdout.flush()
 
+stdout.write('\n')
 fd.close()
 
