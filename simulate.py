@@ -51,8 +51,8 @@ if opt.output is None:
 fd = open(opt.output, 'w', buffer_size)
 fd.write('# N={:d}\n'.format(N))
 fd.write('# beta={:f}\n'.format(opt.beta))
-# Write RNG seed and commit hash so this run can be repeated later, once the
-# code has changed
+# Write RNG seed and commit hash so this run can be repeated after the code has
+# changed
 fd.write('# seed={:d}\n'.format(seed))
 fd.write('# commit='+check_output(['git', 'log', '--pretty=format:%H', '-n',
                                    '1' ])+'\n')
@@ -70,18 +70,15 @@ grid[:,:] = sp.random.random_integers(0, 1, size=grid.shape)
 # TODO: either use tofile for saving or make them into independent arrays
 data = sp.empty((opt.steps, 2), dtype=sp.uint32)
 # Number of up spins
-up = data[:,0]
-up[0] = sp.sum(grid)
+up = sp.sum(grid)
 # Number of up-down pairs
-# Energy = - (N++ + N-- - N+-) = 2 * (N+- - N)
-updown = data[:,1]
 # up ^ up = down ^ down = 0
 # up ^ down = down ^ up = 1
 # So if I sum the xor of all pairs, I get the number of up-down pairs.
-updown[0] = sp.sum(grid[:-1,:] ^ grid[1:,:]) \
-          + sp.sum(grid[:,:-1] ^ grid[:,1:]) \
-          + sp.sum(grid[-1,:] ^ grid[0,:])   \
-          + sp.sum(grid[:,-1] ^ grid[:,0])
+updown = sp.sum(grid[:-1,:] ^ grid[1:,:]) \
+       + sp.sum(grid[:,:-1] ^ grid[:,1:]) \
+       + sp.sum(grid[-1,:] ^ grid[0,:])   \
+       + sp.sum(grid[:,-1] ^ grid[:,0])
 
 print 'Simulating {:d} steps of a {:d}x{:d} lattice at beta={:f}'.format(
     opt.steps, opt.length, opt.length, opt.beta)
@@ -105,9 +102,9 @@ progress_bar_size = min(20, opt.steps)
 steps_per_dash = opt.steps / progress_bar_size
 print '['+' '*progress_bar_size+']\r[',
 stdout.flush()
-for step in xrange(1,opt.steps):
-    up[step] = up[step-1]
-    updown[step] = updown[step-1]
+
+def evolve_lattice():
+    global up, updown
     for i in range(opt.length):
         for j in range(opt.length):
             # Calculate change in up-down neighbours if I flip out
@@ -122,14 +119,17 @@ for step in xrange(1,opt.steps):
             if deltaupdown <= 0 or \
                     sp.random.random() < sp.exp(-opt.beta*deltaupdown):
                 grid[i,j] = not grid[i,j]
-                up[step] += [-1, 1][grid[i,j]]
-                updown[step] += deltaupdown
+                up += [-1, 1][grid[i,j]]
+                updown += deltaupdown
+
+for step in xrange(1,opt.steps):
+    evolve_lattice()
     if opt.movie:
         movieWriter.write((128*grid).astype(sp.uint8))
     if step % steps_per_dash == 0:
         stdout.write('-')
         stdout.flush()
-    fd.write(' '.join(str(d) for d in data[step, :])+'\n')
+    fd.write(' '.join(str(d) for d in [up, updown]) + '\n')
 if opt.steps % progress_bar_size == 0:
     stdout.write('-')
     stdout.flush()
