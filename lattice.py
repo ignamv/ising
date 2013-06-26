@@ -2,8 +2,16 @@
 import scipy as sp
 
 class Lattice(object):
+    """Grid of dipoles with nearest-neighbour interactions
+
+    2D grid of dipoles which can either point up or down. Every pair of
+    anti-parallel neighbours adds one unit of energy. On every simulation step,
+    the lattice evolves by always minimizing energy and ocasionally (depending
+    on the temperature) gaining energy."""
+
 
     def __init__(self, state):
+        """Initialize the lattice to the specified state (2D array of 1,0)"""
         if state.shape[0] % 2 != 0 or state.shape[1] % 2 != 0:
             raise Exception('Lattice side lengths must be even')
         self.state = state.astype(sp.byte)
