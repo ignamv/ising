@@ -8,6 +8,7 @@ from time import time
 from subprocess import check_output
 import argparse
 from sys import stdout
+from lattice import Lattice
 
 #----------------------------- Settings -------------------------------------
 parser = argparse.ArgumentParser(description='Simulate a lattice of dipoles '
@@ -58,26 +59,9 @@ fd.write('# beta={:f}\n'.format(opt.beta))
 fd.write('# seed={:d}\n'.format(seed))
 fd.write('# commit='+check_output(['git', 'log', '--pretty=format:%H', '-n',
                                    '1' ])+'\n')
-grid = sp.empty((opt.length, opt.length), dtype=sp.byte)
-# up is 1, down is 0
-grid[:,:] = sp.random.random_integers(0, 1, size=grid.shape)
-# Stores the number of neighbours of the slice I'm updating
-dUpdown = sp.empty((opt.length/2, opt.length/2), dtype=sp.byte)
 
-# Original motivation for making up and upup into slices of data was to then
-# use data.tofile
-# TODO: either use tofile for saving or make them into independent arrays
-data = sp.empty((opt.steps, 2), dtype=sp.uint32)
-# Number of up spins
-up = sp.sum(grid)
-# Number of up-down pairs
-# up ^ up = down ^ down = 0
-# up ^ down = down ^ up = 1
-# So if I sum the xor of all pairs, I get the number of up-down pairs.
-updown = sp.sum(grid[:-1,:] ^ grid[1:,:]) \
-       + sp.sum(grid[:,:-1] ^ grid[:,1:]) \
-       + sp.sum(grid[-1,:] ^ grid[0,:])   \
-       + sp.sum(grid[:,-1] ^ grid[:,0])
+lattice = Lattice(sp.random.random_integers(0, 1, size=(opt.length,
+                                                        opt.length)))
 
 print 'Simulating {:d} steps of a {:d}x{:d} lattice at beta={:f}'.format(
     opt.steps, opt.length, opt.length, opt.beta)
@@ -102,46 +86,14 @@ steps_per_dash = opt.steps / progress_bar_size
 print '['+' '*progress_bar_size+']\r[',
 stdout.flush()
 
-def evolve_lattice():
-    global up, updown, dUpdown
-    # Update spins in a chessboard pattern.
-    # This allows me to vectorize the counting of neighbours
-    for x,y in sp.random.permutation([(0,0), (1,1), (1,0), (0,1)]):
-        # Stores the change in the number of up-down pairs if I flip this cell
-        dUpdown[:,:] = -2
-        # Handle wrapping (different for each slice)
-        if x == 0:
-            dUpdown += grid[1::2,y::2]
-            dUpdown[1:,:] += grid[1:-1:2,y::2]
-            dUpdown[0,:] += grid[-1,y::2]
-        else:
-            dUpdown[:-1,:] += grid[2::2,y::2]
-            dUpdown[-1,:] += grid[0,y::2]
-            dUpdown += grid[0::2,y::2]
-        if y == 0:
-            dUpdown += grid[x::2,1::2]
-            dUpdown[:,1:] += grid[x::2,1:-1:2]
-            dUpdown[:,0] += grid[x::2,-1]
-        else:
-            dUpdown[:,:-1] += grid[x::2,2::2]
-            dUpdown[:,-1] += grid[x::2,0]
-            dUpdown += grid[x::2,0::2]
-        # Invert if the cell is pointing down
-        dUpdown *= grid[x::2, y::2]*2-1
-        # Flip with probability min{exp(-ß*ΔE), 1}
-        flips = sp.random.random(size=dUpdown.shape) < sp.exp(-opt.beta*dUpdown)
-        grid[x::2,y::2] ^= flips
-        updown += sp.sum(dUpdown * flips)
-    up = sp.sum(grid)
-
 for step in xrange(1,opt.steps):
-    evolve_lattice()
+    lattice.step(opt.beta)
     if opt.movie:
-        movieWriter.write((128*grid).astype(sp.uint8))
+        movieWriter.write((128*lattice.state).astype(sp.uint8))
     if step % steps_per_dash == 0:
         stdout.write('-')
         stdout.flush()
-    fd.write(' '.join(str(d) for d in [up, updown]) + '\n')
+    fd.write(' '.join(str(d) for d in [lattice.up, lattice.updown]) + '\n')
 if opt.steps % progress_bar_size == 0:
     stdout.write('-')
     stdout.flush()
