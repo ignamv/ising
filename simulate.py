@@ -28,6 +28,8 @@ parser.add_argument('-o', '--output', help='Data output filename. Default '
                     'value is the next filename of the form '
                     +output_prefix+'NNNNN'+output_suffix)
 opt = parser.parse_args()
+# Make sure the length is even
+opt.length += opt.length % 2
 # Number of spins
 N = opt.length*opt.length
 # Write buffer size
@@ -59,7 +61,8 @@ fd.write('# commit='+check_output(['git', 'log', '--pretty=format:%H', '-n',
 grid = sp.empty((opt.length, opt.length), dtype=sp.byte)
 # up is 1, down is 0
 grid[:,:] = sp.random.random_integers(0, 1, size=grid.shape)
-dUpdown = sp.empty(grid.shape, dtype=sp.byte)
+# Stores the number of neighbours of the slice I'm updating
+dUpdown = sp.empty((opt.length/2, opt.length/2), dtype=sp.byte)
 
 # Original motivation for making up and upup into slices of data was to then
 # use data.tofile
@@ -100,35 +103,35 @@ print '['+' '*progress_bar_size+']\r[',
 stdout.flush()
 
 def evolve_lattice():
-    global up, updown
+    global up, updown, dUpdown
     # Update spins in a chessboard pattern.
     # This allows me to vectorize the counting of neighbours
     for x,y in sp.random.permutation([(0,0), (1,1), (1,0), (0,1)]):
         # Stores the change in the number of up-down pairs if I flip this cell
-        dUpdown[x::2,y::2] = -2
+        dUpdown[:,:] = -2
+        # Handle wrapping (different for each slice)
         if x == 0:
-            dUpdown[::2,y::2] += grid[1::2,y::2]
-            dUpdown[2::2,y::2] += grid[1:-1:2,y::2]
-            dUpdown[0,y::2] += grid[-1,y::2]
+            dUpdown += grid[1::2,y::2]
+            dUpdown[1:,:] += grid[1:-1:2,y::2]
+            dUpdown[0,:] += grid[-1,y::2]
         else:
-            dUpdown[1:-1:2,y::2] += grid[2::2,y::2]
-            dUpdown[-1,y::2] += grid[0,y::2]
-            dUpdown[1::2,y::2] += grid[0::2,y::2]
+            dUpdown[:-1,:] += grid[2::2,y::2]
+            dUpdown[-1,:] += grid[0,y::2]
+            dUpdown += grid[0::2,y::2]
         if y == 0:
-            dUpdown[x::2,0::2] += grid[x::2,1::2]
-            dUpdown[x::2,2::2] += grid[x::2,1:-1:2]
-            dUpdown[x::2,0] += grid[x::2,-1]
+            dUpdown += grid[x::2,1::2]
+            dUpdown[:,1:] += grid[x::2,1:-1:2]
+            dUpdown[:,0] += grid[x::2,-1]
         else:
-            dUpdown[x::2,1:-1:2] += grid[x::2,2::2]
-            dUpdown[x::2,-1] += grid[x::2,0]
-            dUpdown[x::2,1::2] += grid[x::2,0::2]
+            dUpdown[:,:-1] += grid[x::2,2::2]
+            dUpdown[:,-1] += grid[x::2,0]
+            dUpdown += grid[x::2,0::2]
         # Invert if the cell is pointing down
-        dUpdown[x::2,y::2] *= grid[x::2, y::2]*2-1
+        dUpdown *= grid[x::2, y::2]*2-1
         # Flip with probability min{exp(-ß*ΔE), 1}
-        flips = sp.random.random(size=(opt.length/2,opt.length/2)) \
-              < sp.exp(-opt.beta*dUpdown[x::2,y::2])
+        flips = sp.random.random(size=dUpdown.shape) < sp.exp(-opt.beta*dUpdown)
         grid[x::2,y::2] ^= flips
-        updown += sp.sum(dUpdown[x::2,y::2] * flips)
+        updown += sp.sum(dUpdown * flips)
     up = sp.sum(grid)
 
 for step in xrange(1,opt.steps):
