@@ -59,11 +59,7 @@ fd.write('# commit='+check_output(['git', 'log', '--pretty=format:%H', '-n',
 grid = sp.empty((opt.length, opt.length), dtype=sp.byte)
 # up is 1, down is 0
 grid[:,:] = sp.random.random_integers(0, 1, size=grid.shape)
-# Look into the possibility of storing (up neighbours - down neighbours) for
-# each spin
-# It would make the deltaE calculation a simple read, but every spin flip would
-# require 4 increments/decrements
-# neighbours = sp.zeros(size=grid.shape, dtype=sp.byte)
+dUpdown = sp.empty(grid.shape, dtype=sp.byte)
 
 # Original motivation for making up and upup into slices of data was to then
 # use data.tofile
@@ -105,22 +101,35 @@ stdout.flush()
 
 def evolve_lattice():
     global up, updown
-    for i in range(opt.length):
-        for j in range(opt.length):
-            # Calculate change in up-down neighbours if I flip out
-            deltaupdown = grid[i,(j+1)%opt.length] + grid[i,(j-1)%opt.length] \
-                        + grid[(i+1)%opt.length,j] + grid[(i-1)%opt.length,j] \
-                        - 2
-            if not grid[i,j]:
-                deltaupdown *= -1
-            # Transition probability is:
-            # - if ΔE < 0: 1
-            # - otherwise: exp(-beta*ΔE)
-            if deltaupdown <= 0 or \
-                    sp.random.random() < sp.exp(-opt.beta*deltaupdown):
-                grid[i,j] = not grid[i,j]
-                up += [-1, 1][grid[i,j]]
-                updown += deltaupdown
+    # Update spins in a chessboard pattern.
+    # This allows me to vectorize the counting of neighbours
+    for x,y in sp.random.permutation([(0,0), (1,1), (1,0), (0,1)]):
+        # Stores the change in the number of up-down pairs if I flip this cell
+        dUpdown[x::2,y::2] = -2
+        if x == 0:
+            dUpdown[::2,y::2] += grid[1::2,y::2]
+            dUpdown[2::2,y::2] += grid[1:-1:2,y::2]
+            dUpdown[0,y::2] += grid[-1,y::2]
+        else:
+            dUpdown[1:-1:2,y::2] += grid[2::2,y::2]
+            dUpdown[-1,y::2] += grid[0,y::2]
+            dUpdown[1::2,y::2] += grid[0::2,y::2]
+        if y == 0:
+            dUpdown[x::2,0::2] += grid[x::2,1::2]
+            dUpdown[x::2,2::2] += grid[x::2,1:-1:2]
+            dUpdown[x::2,0] += grid[x::2,-1]
+        else:
+            dUpdown[x::2,1:-1:2] += grid[x::2,2::2]
+            dUpdown[x::2,-1] += grid[x::2,0]
+            dUpdown[x::2,1::2] += grid[x::2,0::2]
+        # Invert if the cell is pointing down
+        dUpdown[x::2,y::2] *= grid[x::2, y::2]*2-1
+        # Flip with probability min{exp(-ß*ΔE), 1}
+        flips = sp.random.random(size=(opt.length/2,opt.length/2)) \
+              < sp.exp(-opt.beta*dUpdown[x::2,y::2])
+        grid[x::2,y::2] ^= flips
+        updown += sp.sum(dUpdown[x::2,y::2] * flips)
+    up = sp.sum(grid)
 
 for step in xrange(1,opt.steps):
     evolve_lattice()
