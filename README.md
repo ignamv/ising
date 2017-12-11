@@ -10,8 +10,9 @@ in the lattice.
 The order of the lattice is measured by the number of spins
 pointing up/down and by the number of up-up, up-down and down-down pairs. The
 point of this program is to run a number of simulations at various temperatures
-and measure the variations in order. Also, to make [pretty
-videos](http://www.youtube.com/watch?v=5hcBQ8a1Bag)
+and measure the variations in order. Also, to make 
+[pretty videos](http://www.youtube.com/watch?v=5hcBQ8a1Bag)
+
 Usage
 -----
 
